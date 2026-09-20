@@ -509,6 +509,9 @@ def get_entities(tag):
         return slot_x_with_electric[:-5]
     elif 'P8' in tag:
         return slot_x_with_electric + extra_p8
+    elif 'C4' in tag:
+        # C4 / C4-V2 计电量版：单插孔 + 电量计量，行为等同 C2/C1-2（1 个 relay + 电量类传感器）
+        return slot_x_with_electric[:-7]
 
 def get_sunlogin_device(hass, config):
     model = config.get(CONF_DEVICE_MODEL)
@@ -524,6 +527,9 @@ def get_sunlogin_device(hass, config):
         return P4(hass, config)
     elif 'P8' in model:
         return P8(hass, config)
+    elif 'C4' in model:
+        # C4 / C4-V2 计电量版：单插孔 + 计量，复用 C2 设备类（与 C2/C1-2 同语义）
+        return C2(hass, config)
     else:
         pass
 
