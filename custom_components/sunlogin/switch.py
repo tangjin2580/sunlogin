@@ -1,5 +1,6 @@
 from datetime import timedelta
 import logging
+import re
 
 from homeassistant.components.switch import DOMAIN as ENTITY_DOMAIN
 from homeassistant.components.switch import (
@@ -123,7 +124,8 @@ class DeviceSwitch(SwitchEntity, RestoreEntity):
         self.device = device
         self.dp_id = switchid
         self.entity_description = description
-        self.entity_id = f"{ENTITY_DOMAIN}.{self.device.model}_{self.device.sn}_{self.dp_id}"
+        # 型号可能含大写或连字符(如 P8Pro/C4-V2/C1-2)，entity_id 必须仅含 [a-z0-9_]，否则 HA 报 invalid entity ID
+        self.entity_id = f"{ENTITY_DOMAIN}.{re.sub(r'\W+', '_', self.device.model.lower())}_{self.device.sn}_{self.dp_id}"
 
         if (remark := device.memos.get(switchid)) is not None:
             self._attr_name = remark

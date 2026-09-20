@@ -499,6 +499,9 @@ def get_entities(tag):
 
     elif 'C2' in tag or 'C1-2' == tag:
         return slot_x_with_electric[:-7]
+    elif 'C4' in tag:
+        # C4 / C4-V2 计电量版：单插孔 + 电量计量，等同 C2/C1-2（relay0 + 功率/电压/电流/电量统计）
+        return slot_x_with_electric[:-7]
     elif 'C1' in tag:
         return slot_x_without_electric[:-7]
     elif 'P1' in tag:
@@ -509,13 +512,13 @@ def get_entities(tag):
         return slot_x_with_electric[:-5]
     elif 'P8' in tag:
         return slot_x_with_electric + extra_p8
-    elif 'C4' in tag:
-        # C4 / C4-V2 计电量版：单插孔 + 电量计量，行为等同 C2/C1-2（1 个 relay + 电量类传感器）
-        return slot_x_with_electric[:-7]
 
 def get_sunlogin_device(hass, config):
     model = config.get(CONF_DEVICE_MODEL)
     if 'C2' in model or 'C1-2' == model:
+        return C2(hass, config)
+    elif 'C4' in model:
+        # C4 / C4-V2 计电量版：单插孔 + 计量，复用 C2 设备类
         return C2(hass, config)
     elif 'C1' in model:
         return C1Pro(hass, config)
@@ -527,9 +530,6 @@ def get_sunlogin_device(hass, config):
         return P4(hass, config)
     elif 'P8' in model:
         return P8(hass, config)
-    elif 'C4' in model:
-        # C4 / C4-V2 计电量版：单插孔 + 计量，复用 C2 设备类（与 C2/C1-2 同语义）
-        return C2(hass, config)
     else:
         pass
 
@@ -1048,6 +1048,8 @@ class SunloginPlug(SunLoginDevice, ABC):
         entities = get_entities('electricity')
         for dp_id in entities:
             entity = self._entities.get(dp_id)
+            if entity is None:
+                continue
             last_state = await entity.async_get_last_state()
             if last_state is not None and isinstance(last_state.state, (int, float)):
                 self._status.update({dp_id: last_state.state})
@@ -1126,6 +1128,8 @@ class SunloginPlug(SunLoginDevice, ABC):
         self.write_ha_state()   
 
     async def async_electric_update(self):
+        # 流量优化：关闭电量轮询（用户不关心电量，仅保留远程操控）
+        return
         try:
             resp = await self.api.async_get_electric(self.sn, self.token.access_token)
             _LOGGER.debug(f"{self.name} (api.async_get_electric): {resp.text}")
@@ -1142,6 +1146,8 @@ class SunloginPlug(SunLoginDevice, ABC):
         self.write_ha_state()
 
     async def async_power_consumes_update(self):
+        # 流量优化：关闭电量统计轮询
+        return
         try:
             resp = await self.api.async_get_power_consumes(self.sn)
             r_json = resp.json()
@@ -1560,6 +1566,8 @@ class P8(SunloginPlug):
         return get_plug_memos(self.config)
     
     async def async_power_consumes_update(self):
+        # 流量优化：关闭电量统计轮询
+        return
         for index in range(8+1):
             try:
                 resp = await self.api.async_get_power_consumes(self.sn, index=index)
